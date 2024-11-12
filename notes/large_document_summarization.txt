@@ -1,0 +1,108 @@
+When the maximum context length of an LLM is smaller than the size of documents to be summarized, industries use various techniques to summarize large documents while maintaining coherence. Here are some common strategies:
+
+### 1. **Chunking the Document**:
+   - **Divide the document** into smaller chunks, each fitting within the LLM's context window.
+   - **Summarize each chunk** separately using the LLM.
+   - After chunking, the summarized sections can be combined into a single document for further summarization if needed, creating a hierarchical summary.
+
+   **Pros**: Simple to implement and provides reasonable control over granularity.
+   
+   **Cons**: Can lead to loss of context or coherence across chunks, as each summary is processed independently.
+
+### 2. **Recursive Summarization**:
+   - Split the document into manageable chunks, summarize each chunk, then **combine and summarize these summaries iteratively** until you have a single coherent summary.
+   - This technique is especially effective for documents with a clear hierarchical structure (e.g., reports with sections, sub-sections).
+
+   **Pros**: Useful for maintaining key points across sections and creating a cohesive overview.
+   
+   **Cons**: Recursive summarization can introduce errors at each layer, potentially leading to information loss.
+
+### 3. **Sliding Window Summarization**:
+   - Apply a **sliding window** over the document, where each windowed chunk overlaps with the next.
+   - Summarize each overlapping section and stitch the summaries together, potentially using additional steps to refine the result.
+   
+   **Pros**: Helps retain continuity between sections.
+   
+   **Cons**: Increases computational cost due to the overlapping regions and may introduce redundancy.
+
+### 4. **Extractive Summarization as a Pre-step**:
+   - Use extractive summarization to **identify and extract the most relevant sections or sentences** from the document first.
+   - This can involve selecting paragraphs or sentences with high relevance scores, either through an extractive summarizer model or a keyword search.
+   - Summarize only the extracted content using the LLM.
+
+   **Pros**: Preserves important details while reducing the length of content passed to the LLM.
+   
+   **Cons**: Extractive methods can miss nuanced information and are generally less flexible than abstractive methods.
+
+### 5. **Hybrid Summarization (Extractive + Abstractive)**:
+   - Combine extractive and abstractive methods where **extractive summarization condenses the document** initially, then **abstractive summarization rephrases** and summarizes.
+   - This is typically done in two phases: First, an extractive method identifies key points, followed by an LLM that abstracts them into a concise summary.
+
+   **Pros**: Effective at retaining core information while offering a fluent, readable summary.
+   
+   **Cons**: Slightly complex setup, as it requires orchestration between extractive and abstractive techniques.
+
+### 6. **Topic Segmentation and Thematic Summarization**:
+   - Segment the document based on thematic sections or topics using **topic modeling** or clustering techniques.
+   - Summarize each segment independently and combine the results into a comprehensive summary.
+   
+   **Pros**: Allows for a targeted approach, ensuring each theme is covered thoroughly.
+   
+   **Cons**: Requires additional processing for topic segmentation and may not be ideal for very short or diverse documents.
+
+### 7. **Memory-Augmented Summarization**:
+   - Employ a **memory mechanism** where each chunk summary updates a memory state (such as key points or entities), which carries relevant information across chunks.
+   - The memory can be stored as a dictionary or a state and used to enhance coherence by including key points across sections in the final summary.
+
+   **Pros**: Helps maintain coherence by “remembering” important points from each chunk.
+   
+   **Cons**: Requires a custom approach to maintain and update memory, adding implementation complexity.
+
+### 8. **Using Retrieval-Augmented Generation (RAG) for Summarization**:
+   - If the document is too large for direct summarization, **index it in a vector store** using embeddings. Retrieve relevant sections dynamically based on summary context.
+   - Use a retrieval-augmented pipeline to provide context-specific document excerpts to the LLM for summarization.
+
+   **Pros**: Allows for flexible summarization that dynamically pulls relevant context and is scalable for extremely large documents.
+   
+   **Cons**: Can be complex to set up and requires a vector database or retrieval component.
+
+### Practical Example with Recursive Summarization
+
+Here’s how you might use recursive summarization in code with LangGraph or similar frameworks:
+
+```python
+from transformers import pipeline
+
+# Initialize summarizer (substitute with any locally hosted summarizer if necessary)
+summarizer = pipeline("summarization", model="sshleifer/distilbart-cnn-12-6")
+
+# Define recursive summarization function
+def recursive_summarize(document, chunk_size=1000, recursion_depth=1):
+    if len(document) <= chunk_size or recursion_depth <= 0:
+        # Base case: summarize the chunk
+        return summarizer(document, max_length=100, min_length=30, do_sample=False)[0]['summary_text']
+    
+    # Split document into chunks
+    chunks = [document[i:i+chunk_size] for i in range(0, len(document), chunk_size)]
+    
+    # Summarize each chunk and combine
+    chunk_summaries = [summarizer(chunk, max_length=100, min_length=30, do_sample=False)[0]['summary_text'] for chunk in chunks]
+    combined_summary = " ".join(chunk_summaries)
+    
+    # Recursively summarize the combined summary
+    return recursive_summarize(combined_summary, chunk_size, recursion_depth - 1)
+
+# Sample usage
+long_document = "..."  # Your long document text here
+final_summary = recursive_summarize(long_document, chunk_size=1000, recursion_depth=2)
+print(final_summary)
+```
+
+### Conclusion
+
+Each method has trade-offs, and the best choice depends on:
+- **Document type**: Structured documents may benefit more from recursive or thematic summarization.
+- **LLM constraints**: Models with very limited context length may require extractive methods as a pre-step.
+- **Application needs**: For real-time summaries, consider lightweight approaches; for high accuracy, focus on coherence with thematic segmentation or hybrid approaches.
+
+Using these techniques can yield coherent and concise summaries, enabling effective use of LLMs with limited context for large documents.
